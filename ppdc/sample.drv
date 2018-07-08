@@ -149,9 +149,9 @@ Version "2.3"
   MediaSize w41h144
   MediaSize w153h198
 
-  Resolution k 1 0 0 0 136dpi
-  Resolution k 1 0 0 0 203dpi
-  *Resolution k 1 0 0 0 300dpi
+  Resolution w 8 0 0 0 136dpi
+  Resolution w 8 0 0 0 203dpi
+  *Resolution w 8 0 0 0 300dpi
 
   Darkness 0 Light
   Darkness 1 Medium
@@ -444,7 +444,7 @@ Version "2.3"
 
   *MediaSize w288h432
 
-  *Resolution k 1 0 0 0 300dpi
+  *Resolution w 8 0 0 0 300dpi
 
   Group "PrinterSettings/Printer Settings"
     Option "inPrintDensity/Print Density" PickOne DocumentSetup 20.0
@@ -610,7 +610,7 @@ Version "2.3"
     MinSize 36 36
     MaxSize 288 3600
 
-    *Resolution k 1 0 0 0 203dpi
+    *Resolution w 8 0 0 0 300dpi
 
     Group "General/General"
       Option "zeMediaTracking/Media Tracking" PickOne AnySetup 20.0
@@ -767,10 +767,10 @@ Version "2.3"
     MediaSize w288h468
     MediaSize w288h936
 
-    *Resolution k 1 0 0 0 203dpi
-    Resolution k 1 0 0 0 300dpi
-    Resolution k 1 0 0 0 600dpi
-
+    *Resolution w 8 0 0 0 203dpi
+    Resolution w 8 0 0 0 300dpi
+    Resolution w 8 0 0 0 600dpi
+    
     Group "PrinterSettings/Printer Settings"
       Option "Darkness" PickOne AnySetup 20.0
 	*Choice "-1/Printer Default" "<</cupsCompression -1>>setpagedevice"
@@ -865,9 +865,9 @@ Version "2.3"
     MediaSize w288h468
     MediaSize w288h936
 
-    *Resolution k 1 0 0 0 203dpi
-    Resolution k 1 0 0 0 300dpi
-    Resolution k 1 0 0 0 600dpi
+    *Resolution w 8 0 0 0 203dpi
+    Resolution w 8 0 0 0 300dpi
+    Resolution w 8 0 0 0 600dpi
 
     Group "General/General"
       Option "MediaType/Media Type" PickOne AnySetup 20.0
@@ -986,9 +986,9 @@ Version "2.3"
     MediaSize w576h432
     MediaSize w576h468
 
-    *Resolution k 1 0 0 0 203dpi
-    Resolution k 1 0 0 0 300dpi
-    Resolution k 1 0 0 0 600dpi
+    *Resolution w 8 0 0 0 203dpi
+    Resolution w 8 0 0 0 300dpi
+    Resolution w 8 0 0 0 600dpi
 
     Group "General/General"
       Option "zeMediaTracking/Media Tracking" PickOne AnySetup 20.0
