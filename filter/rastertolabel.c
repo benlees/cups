@@ -59,7 +59,8 @@
 unsigned char	*Buffer;		/* Output buffer */
 unsigned char	*CompBuffer;		/* Compression buffer */
 unsigned char	*LastBuffer;		/* Last buffer */
-unsigned	Feed;			/* Number of lines to skip */
+unsigned	Feed,			/* Number of lines to skip */
+            realBytesPerLine;       /* Actual bytes per line taking into account 8bpp -> 1bpp */
 int		LastSet;		/* Number of repeat characters */
 int		ModelNumber,		/* cupsModelNumber attribute */
 		Page,			/* Current page */
@@ -77,7 +78,7 @@ void	CancelJob(int sig);
 void	OutputLine(ppd_file_t *ppd, cups_page_header2_t *header, unsigned y);
 void	PCLCompress(unsigned char *line, unsigned length);
 void	ZPLCompress(unsigned char repeat_char, unsigned repeat_count);
-
+void    GrayscaleThresholdLine(ppd_file_t *ppd, cups_page_header2_t *header);  //btl
 
 /*
  * 'Setup()' - Prepare the printer for printing.
@@ -177,6 +178,11 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
   fprintf(stderr, "DEBUG: cupsColorSpace = %d\n", header->cupsColorSpace);
   fprintf(stderr, "DEBUG: cupsCompression = %d\n", header->cupsCompression);
 
+  /*
+   * Calculate actual number of bytes per line we intend to output allowing for 8bpp to 1bpp conversion..
+   */
+  realBytesPerLine = (header->cupsBytesPerLine+(header->cupsBitsPerPixel-1)) / header->cupsBitsPerPixel;
+
   switch (ModelNumber)
   {
     case DYMO_3x0 :
@@ -187,7 +193,7 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 	length = header->PageSize[1] * header->HWResolution[1] / 72;
 
 	printf("\033L%c%c", length >> 8, length);
-	printf("\033D%c", header->cupsBytesPerLine);
+	printf("\033D%c", realBytesPerLine);
 
 	printf("\033%c", header->cupsCompression + 'c'); /* Darkness */
 	break;
@@ -278,8 +284,8 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 	*/
 
         printf("~DGR:CUPS.GRF,%u,%u,\n",
-	       header->cupsHeight * header->cupsBytesPerLine,
-	       header->cupsBytesPerLine);
+	       header->cupsHeight * realBytesPerLine,
+	       realBytesPerLine);
 
        /*
         * Allocate compression buffers...
@@ -738,7 +744,9 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
   static const unsigned char *hex = (const unsigned char *)"0123456789ABCDEF";
 					/* Hex digits */
 
-
+  if (header->cupsBitsPerPixel == 8)
+    GrayscaleThresholdLine(ppd, header);
+    
   (void)ppd;
 
   switch (ModelNumber)
@@ -749,7 +757,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
 	*/
 
 	if (Buffer[0] ||
-            memcmp(Buffer, Buffer + 1, header->cupsBytesPerLine - 1))
+            memcmp(Buffer, Buffer + 1, realBytesPerLine - 1))
 	{
           if (Feed)
 	  {
@@ -764,7 +772,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
           }
 
           putchar(0x16);
-	  fwrite(Buffer, header->cupsBytesPerLine, 1, stdout);
+	  fwrite(Buffer, realBytesPerLine, 1, stdout);
 	  fflush(stdout);
 	}
 	else
@@ -772,16 +780,16 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
 	break;
 
     case ZEBRA_EPL_LINE :
-        printf("\033g%03d", header->cupsBytesPerLine);
-	fwrite(Buffer, 1, header->cupsBytesPerLine, stdout);
+        printf("\033g%03d", realBytesPerLine);  //btl
+	fwrite(Buffer, 1, realBytesPerLine, stdout);  //btl
 	fflush(stdout);
         break;
 
     case ZEBRA_EPL_PAGE :
-        if (Buffer[0] || memcmp(Buffer, Buffer + 1, header->cupsBytesPerLine))
+        if (Buffer[0] || memcmp(Buffer, Buffer + 1, realBytesPerLine))  //btl
 	{
-          printf("GW0,%d,%d,1\n", y, header->cupsBytesPerLine);
-	  for (i = header->cupsBytesPerLine, ptr = Buffer; i > 0; i --, ptr ++)
+          printf("GW0,%d,%d,1\n", y, realBytesPerLine);  //btl
+	  for (i = realBytesPerLine, ptr = Buffer; i > 0; i --, ptr ++)  //btl
 	    putchar(~*ptr);
 	  putchar('\n');
 	  fflush(stdout);
@@ -796,7 +804,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
 
         if (LastSet)
 	{
-	  if (!memcmp(Buffer, LastBuffer, header->cupsBytesPerLine))
+	  if (!memcmp(Buffer, LastBuffer, realBytesPerLine))
 	  {
 	    putchar(':');
 	    return;
@@ -807,7 +815,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
         * Convert the line to hex digits...
 	*/
 
-	for (ptr = Buffer, compptr = CompBuffer, i = header->cupsBytesPerLine;
+	for (ptr = Buffer, compptr = CompBuffer, i = realBytesPerLine;
 	     i > 0;
 	     i --, ptr ++)
         {
@@ -857,15 +865,15 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
         * Save this line for the next round...
 	*/
 
-	memcpy(LastBuffer, Buffer, header->cupsBytesPerLine);
+	memcpy(LastBuffer, Buffer, realBytesPerLine);
 	LastSet = 1;
         break;
 
     case ZEBRA_CPCL :
-        if (Buffer[0] || memcmp(Buffer, Buffer + 1, header->cupsBytesPerLine))
+        if (Buffer[0] || memcmp(Buffer, Buffer + 1, realBytesPerLine))
 	{
-	  printf("CG %u 1 0 %d ", header->cupsBytesPerLine, y);
-          fwrite(Buffer, 1, header->cupsBytesPerLine, stdout);
+	  printf("CG %u 1 0 %d ", realBytesPerLine, y);
+          fwrite(Buffer, 1, realBytesPerLine, stdout);
 	  puts("\r");
 	  fflush(stdout);
 	}
@@ -873,7 +881,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
 
     case INTELLITECH_PCL :
 	if (Buffer[0] ||
-            memcmp(Buffer, Buffer + 1, header->cupsBytesPerLine - 1))
+            memcmp(Buffer, Buffer + 1, realBytesPerLine - 1))
         {
 	  if (Feed)
 	  {
@@ -882,7 +890,7 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
 	    LastSet = 0;
 	  }
 
-          PCLCompress(Buffer, header->cupsBytesPerLine);
+          PCLCompress(Buffer, realBytesPerLine);
 	}
 	else
 	  Feed ++;
@@ -890,6 +898,39 @@ OutputLine(ppd_file_t         *ppd,	/* I - PPD file */
   }
 }
 
+/*
+ * 'GrayscaleThresholdLine()' - Converts a line of 8bpp grayscale to 1bpp based on threshold...
+ */
+void GrayscaleThresholdLine(ppd_file_t         *ppd,
+                            cups_page_header2_t *header)
+{
+    int threshold = 0xbd;    /* Threshold value to switch between black/white */
+    unsigned int i = 0;     /* Output pixel count */
+    unsigned int j = 0;     /* Per bit count */
+    unsigned int b = 0;     /* Is the output pixel count width different from the source raster width? */
+    unsigned char t = 0xff;     /* Output char */
+    unsigned char *outbuf = Buffer;      /* Pointer into output buffer */
+   
+    /* Check if width isn't divisible by 8 for 8bpp -> 1bpp */
+    if (header->cupsWidth % 8)
+      b = 1;
+    
+    //TODO: expose threshold in ppd
+    
+    /* Convert 8bpp to 1bpp based on threshold level */
+    for (i = 0; i < realBytesPerLine * 8; i ++) {
+      t = 0x00;
+      for (j = 0; j < 8; j ++) {
+        if ((b) && (j>0) && (((i+j) % header->cupsWidth) == 0)) {
+          break;
+        }
+        if (Buffer[i+j] <= threshold)
+          t = t ^ (0x80 >> j);
+      }
+      *outbuf++ = t;
+      i += j-1;
+    }
+}
 
 /*
  * 'PCLCompress()' - Output a PCL (mode 3) compressed line.
